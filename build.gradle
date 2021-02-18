@@ -1,0 +1,156 @@
+
+buildscript {
+
+
+    ext {
+        springBootVersion = '2.2.9.RELEASE'
+    }
+    repositories {
+        jcenter()
+        mavenCentral()
+        mavenLocal()
+
+
+
+        maven { url "https://plugins.gradle.org/m2/" }
+        //for finding propdeps-plugin dependency
+
+        maven {
+            url './maven-repo'
+        }
+    }
+    dependencies {
+        classpath "org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}"
+        classpath "com.moowork.gradle:gradle-node-plugin:1.2.0"
+        //gives the posibility to configure dependencies with provided or optional words such as compile or testCompile
+        classpath 'io.spring.gradle:propdeps-plugin:0.0.9.RELEASE'
+    }
+
+
+
+}
+
+def userName = System.getProperty("user.name")
+if (project.hasProperty("userName")) {
+    userName = project.getProperty("userName")
+}
+
+def userGradleScript = rootProject.file("gisett-backend/developer-properties/${userName}.properties")
+if (userGradleScript.exists()) {
+    logger.quiet('--OVERRIDE-----------------------------------------------------------------------------')
+    logger.quiet("Overriding 'default.properties' with user specific properties from 'developer-properties/${userName}.properties'.")
+    logger.quiet('---------------------------------------------------------------------------------------')
+} else {
+    userGradleScript = rootProject.file("gisett-backend/developer-properties/default.properties")
+    logger.quiet('--default.properties used-----------------------------------------------------------------------------')
+}
+apply from: userGradleScript
+
+// Apply the java plugin to add support for Java
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'com.moowork.gulp'
+apply plugin: 'checkstyle'
+
+
+
+configure(allprojects) {
+    apply plugin: 'propdeps'
+    apply plugin: 'propdeps-idea'
+}
+bootJar {
+    baseName = 'gisett-main'
+    version =  '0.6.1'
+
+    sourceSets {
+        main {
+            resources {
+                srcDirs = ["$project.rootDir/gisett-web/build", "$project.rootDir/gisett-backend/src/main/resources"]
+            }
+        }
+    }
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+checkstyle {
+    configFile = new File(rootDir, "/gisett-backend/checkstyle.xml")
+    toolVersion = '7.8.1'
+    sourceSets = [sourceSets.main]
+    showViolations = true
+    ignoreFailures = true //allow the build to continue if there are warnings
+}
+
+
+
+[Checkstyle].each { taskType ->
+    tasks.withType(taskType) {
+        reports {
+            xml.enabled = false
+            html.enabled = true
+            html.destination rootProject.file("gisett-backend/build/reports/" + taskType + "/" + taskType + "Reports.html")
+        }
+    }
+}
+
+// In this section you declare where to find the dependencies of your project
+repositories {
+    maven { url "https://repo.spring.io/plugins-release" }
+    maven { url "http://download.java.net/maven/2" }
+    maven { url "http://download.osgeo.org/webdav/geotools/" }
+    maven { url "http://repo.boundlessgeo.com/main" }
+
+    maven { url "https://repo.maven.apache.org/maven2" }
+}
+
+// In this section you declare the dependencies for your production and test code
+dependencies {
+    // The production code uses the SLF4J logging API at compile time
+    compile 'org.springframework.boot:spring-boot-starter-web:2.0.1.RELEASE'
+    compile 'org.springframework.boot:spring-boot-starter-actuator:2.0.1.RELEASE'
+    compile 'org.springframework.boot:spring-boot-starter-data-mongodb:2.0.1.RELEASE'
+    compile 'org.json:json:20180130'
+    compile 'org.geotools:gt-shapefile:18.4'
+    compile 'org.geotools:gt-swing:18.4'
+    compile 'org.geotools:gt-geotiff:18.4'
+    compile 'org.geotools:gt-geojson:18.4'
+    compile 'org.geotools:gt-epsg-hsql:18.4'
+    compile 'org.javassist:javassist:3.18.2-GA'
+    compile 'com.github.mongobee:mongobee:0.13'
+
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.springframework.boot:spring-boot-starter-test:2.0.1.RELEASE'
+    testCompile 'com.google.code.gson:gson:2.8.5'
+
+
+    compile group: 'org.springframework.boot', name: 'spring-boot-starter-parent', version: '1.2.1.RELEASE'
+
+    dependencies {
+        optional "org.springframework.boot:spring-boot-configuration-processor"
+    }
+
+}
+
+processResources {
+    filesMatching("**/*.yml") {
+        expand( project.properties )
+    }
+}
+
+processTestResources {
+    filesMatching("**/*.yml") {
+        expand( project.properties )
+    }
+}
+
+task updateResources{
+    copy{
+        from ('build/resources/main')
+        into 'out/production/resources'
+    }
+}
+
